@@ -5,6 +5,8 @@ module.exports._getTmpname = getTmpname // for testing
 
 var fs = require('graceful-fs')
 var MurmurHash3 = require('imurmurhash')
+var path = require('path')
+var activeFiles = {}
 
 var invocations = 0
 function getTmpname (filename) {
@@ -25,12 +27,20 @@ function writeFile (filename, data, options, callback) {
   var truename
   var fd
   var tmpfile
+  var absoluteName = path.resolve(filename)
+  new Promise(function serializeSameFile (resolve) {
+    // make a queue if it doesn't already exist
+    if (!activeFiles[absoluteName]) activeFiles[absoluteName] = []
 
-  new Promise(function (resolve) {
-    fs.realpath(filename, function (_, realname) {
-      truename = realname || filename
-      tmpfile = getTmpname(truename)
-      resolve()
+    activeFiles[absoluteName].push(resolve) // add this job to the queue
+    if (activeFiles[absoluteName].length === 1) resolve() // kick off the first one
+  }).then(function getRealPath () {
+    return new Promise(function (resolve) {
+      fs.realpath(filename, function (_, realname) {
+        truename = realname || filename
+        tmpfile = getTmpname(truename)
+        resolve()
+      })
     })
   }).then(function () {
     return new Promise(function stat (resolve) {
@@ -114,6 +124,11 @@ function writeFile (filename, data, options, callback) {
     fs.unlink(tmpfile, function () {
       callback(err)
     })
+  }).then(function checkQueue () {
+    activeFiles[absoluteName].shift() // remove the element added by serializeSameFile
+    if (activeFiles[absoluteName].length > 0) {
+      activeFiles[absoluteName][0]() // start next job if one is pending
+    }
   })
 }
 
