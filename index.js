@@ -128,7 +128,7 @@ function writeFile (filename, data, options, callback) {
     activeFiles[absoluteName].shift() // remove the element added by serializeSameFile
     if (activeFiles[absoluteName].length > 0) {
       activeFiles[absoluteName][0]() // start next job if one is pending
-    }
+    } else delete activeFiles[absoluteName]
   })
 }
 
