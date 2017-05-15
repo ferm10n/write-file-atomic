@@ -87,12 +87,14 @@ function writeFile (filename, data, options, callback) {
       } else resolve()
     })
   }).then(function syncAndClose () {
-    if (options.fsync !== false) return new Promise(function (resolve, reject) {
-      fs.fsync(fd, function (err) {
-        if (err) reject(err)
-        else fs.close(fd, resolve)
+    if (options.fsync !== false) {
+      return new Promise(function (resolve, reject) {
+        fs.fsync(fd, function (err) {
+          if (err) reject(err)
+          else fs.close(fd, resolve)
+        })
       })
-    })
+    }
   }).then(function chown () {
     if (options.chown) {
       return new Promise(function (resolve, reject) {
